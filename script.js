@@ -1,6 +1,8 @@
 /* ==========================================================
    MOHD SUHAIL - PORTFOLIO
    script.js - All interactive functionality
+   Theme: Sage Green Nature Professional
+   Formspree Integration: https://formspree.io/f/mppwvbzq
    ========================================================== */
 
 // ========== GSAP REGISTER ==========
@@ -111,12 +113,10 @@ if (hamburger && navMenu) {
    4. PORTFOLIO VIDEO HOVER PLAY
    ========================================================== */
 document.querySelectorAll('.portfolio-thumb video').forEach(vid => {
-    // Play on hover
     vid.addEventListener('mouseenter', () => {
         vid.play().catch(err => console.log('Autoplay blocked:', err));
     });
 
-    // Pause and reset on mouse leave
     vid.addEventListener('mouseleave', () => {
         vid.pause();
         vid.currentTime = 0;
@@ -139,49 +139,189 @@ document.querySelectorAll('.portfolio-thumb video').forEach(vid => {
 });
 
 /* ==========================================================
-   6. CONTACT FORM HANDLING
+   6. CONTACT FORM - FORMSPREE INTEGRATION
+   Form ID: https://formspree.io/f/mppwvbzq
    ========================================================== */
 const contactForm = document.getElementById('contactForm');
 
 if (contactForm) {
-    contactForm.addEventListener('submit', function(e) {
+    contactForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
-        // Get form values
-        const name = this.querySelector('input[type="text"]').value;
-        const email = this.querySelector('input[type="email"]').value;
-        const message = this.querySelector('textarea').value;
+        // Get submit button
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalBtnHTML = submitBtn.innerHTML;
 
-        // Simple validation
+        // Get form values
+        const name = this.querySelector('input[name="name"]')?.value.trim() 
+                  || this.querySelector('input[type="text"]')?.value.trim();
+        const email = this.querySelector('input[name="email"]')?.value.trim() 
+                   || this.querySelector('input[type="email"]')?.value.trim();
+        const message = this.querySelector('textarea[name="message"]')?.value.trim() 
+                     || this.querySelector('textarea')?.value.trim();
+
+        // ========== VALIDATION (Form ke neeche message) ==========
+        
+        // Check empty fields
         if (!name || !email || !message) {
-            alert('Please fill in all required fields.');
+            showFormMessage(
+                'error',
+                '⚠️ Please fill in all required fields.'
+            );
             return;
         }
 
-        // Success message
-        alert(`Thank you ${name}! Your message has been received. I'll get back to you soon.`);
+        // Email validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            showFormMessage(
+                'error',
+                '⚠️ Please enter a valid email address.'
+            );
+            return;
+        }
 
-        // Reset form
-        this.reset();
+        // ========== LOADING STATE ==========
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.7';
+        submitBtn.style.cursor = 'not-allowed';
 
-        /* ==========================================
-           NOTE: To make this form actually send emails:
-           
-           OPTION 1: Use Formspree (Free)
-           - Sign up at formspree.io
-           - Get your form endpoint
-           - Change action in HTML: <form action="https://formspree.io/f/YOUR_ID" method="POST">
-           - Remove e.preventDefault();
-           
-           OPTION 2: Use EmailJS (Free)
-           - Sign up at emailjs.com
-           - Add EmailJS SDK in HTML
-           - Use emailjs.send() in this function
-           
-           OPTION 3: WordPress Plugin
-           - Use Contact Form 7 or WPForms plugin
-           ========================================== */
+        try {
+            // Send to Formspree
+            const formData = new FormData(this);
+
+            const response = await fetch(this.action || 'https://formspree.io/f/mppwvbzq', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                // ========== SUCCESS ==========
+                submitBtn.innerHTML = '<i class="fas fa-check"></i> Message Sent!';
+                submitBtn.style.background = 'linear-gradient(135deg, #2d4a2b, #7fa06d)';
+
+                showFormMessage(
+                    'success',
+                    `✅ Thank you ${name}! Your message has been sent. I'll get back to you soon.`
+                );
+
+                // Reset form after 2.5 seconds
+                setTimeout(() => {
+                    this.reset();
+                    submitBtn.innerHTML = originalBtnHTML;
+                    submitBtn.style.opacity = '1';
+                    submitBtn.style.cursor = 'pointer';
+                    submitBtn.disabled = false;
+                    submitBtn.style.background = '';
+                }, 2500);
+
+            } else {
+                // Server error
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || 'Form submission failed');
+            }
+
+        } catch (error) {
+            // ========== ERROR ==========
+            console.error('Form error:', error);
+
+            submitBtn.innerHTML = '<i class="fas fa-times"></i> Failed';
+            submitBtn.style.background = 'linear-gradient(135deg, #dc3545, #c82333)';
+
+            showFormMessage(
+                'error',
+                '❌ Oops! Something went wrong. Please try again or contact me on WhatsApp.'
+            );
+
+            // Reset button after 2.5 seconds
+            setTimeout(() => {
+                submitBtn.innerHTML = originalBtnHTML;
+                submitBtn.style.opacity = '1';
+                submitBtn.style.cursor = 'pointer';
+                submitBtn.disabled = false;
+                submitBtn.style.background = '';
+            }, 2500);
+        }
     });
+
+    // ========== REAL-TIME VALIDATION ==========
+    // User jab typing kare, toh error message hat jaye
+    contactForm.querySelectorAll('input, textarea').forEach(field => {
+        field.addEventListener('input', () => {
+            const existingMsg = document.querySelector('.form-message-error');
+            if (existingMsg) {
+                existingMsg.style.opacity = '0';
+                setTimeout(() => existingMsg.remove(), 300);
+            }
+        });
+    });
+}
+
+/* ==========================================================
+   FORM MESSAGE HELPER (Single, Clean Version)
+   Shows success/error message below the form
+   ========================================================== */
+function showFormMessage(type, message) {
+    // Remove existing message
+    const existingMsg = document.querySelector('.form-message');
+    if (existingMsg) existingMsg.remove();
+
+    // Create message element
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `form-message form-message-${type}`;
+    msgDiv.textContent = message;
+
+    // Colors based on type
+    const styles = {
+        success: {
+            bg: 'rgba(127, 160, 109, 0.15)',
+            color: '#2d4a2b',
+            border: '#7fa06d'
+        },
+        error: {
+            bg: 'rgba(220, 53, 69, 0.1)',
+            color: '#c82333',
+            border: '#dc3545'
+        }
+    };
+
+    const style = styles[type] || styles.error;
+
+    // Apply inline styles
+    msgDiv.style.cssText = `
+        margin-top: 1rem;
+        padding: 1rem 1.2rem;
+        border-radius: 12px;
+        font-size: 0.95rem;
+        font-weight: 500;
+        background: ${style.bg};
+        color: ${style.color};
+        border-left: 4px solid ${style.border};
+        animation: slideDown 0.3s ease;
+        transition: opacity 0.3s ease;
+        line-height: 1.5;
+    `;
+
+    // Insert after form
+    contactForm.parentNode.insertBefore(msgDiv, contactForm.nextSibling);
+
+    // Auto remove after 6 seconds (success) or 5 seconds (error)
+    const timeout = type === 'success' ? 6000 : 5000;
+    setTimeout(() => {
+        if (msgDiv.parentNode) {
+            msgDiv.style.opacity = '0';
+            setTimeout(() => msgDiv.remove(), 300);
+        }
+    }, timeout);
+
+    // Scroll message into view (smooth)
+    setTimeout(() => {
+        msgDiv.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 100);
 }
 
 /* ==========================================================
@@ -191,7 +331,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
     anchor.addEventListener('click', function(e) {
         const targetId = this.getAttribute('href');
         
-        // Skip if href is just "#"
         if (targetId === '#') return;
 
         const targetSection = document.querySelector(targetId);
@@ -215,51 +354,53 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
    ========================================================== */
 const header = document.querySelector('header');
 
-window.addEventListener('scroll', () => {
-    if (window.scrollY > 50) {
-        header.style.boxShadow = '0 4px 30px rgba(0,0,0,0.08)';
-        header.style.padding = '0.8rem 0';
-    } else {
-        header.style.boxShadow = '0 2px 20px rgba(0,0,0,0.04)';
-        header.style.padding = '1rem 0';
-    }
-});
+if (header) {
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 50) {
+            header.style.boxShadow = '0 4px 30px rgba(45, 74, 43, 0.1)';
+            header.style.padding = '0.8rem 0';
+        } else {
+            header.style.boxShadow = '0 2px 20px rgba(45, 74, 43, 0.04)';
+            header.style.padding = '1rem 0';
+        }
+    });
+}
 
 /* ==========================================================
-   9. ACTIVE NAV LINK ON SCROLL (Optional - Highlight current section)
+   9. ACTIVE NAV LINK ON SCROLL
    ========================================================== */
 const sections = document.querySelectorAll('section[id]');
 const navLinks = document.querySelectorAll('#nav-menu a');
 
-window.addEventListener('scroll', () => {
-    let current = '';
+if (sections.length && navLinks.length) {
+    window.addEventListener('scroll', () => {
+        let current = '';
 
-    sections.forEach(section => {
-        const sectionTop = section.offsetTop - 100;
-        const sectionHeight = section.clientHeight;
-        
-        if (window.pageYOffset >= sectionTop && 
-            window.pageYOffset < sectionTop + sectionHeight) {
-            current = section.getAttribute('id');
-        }
-    });
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop - 100;
+            const sectionHeight = section.clientHeight;
+            
+            if (window.pageYOffset >= sectionTop && 
+                window.pageYOffset < sectionTop + sectionHeight) {
+                current = section.getAttribute('id');
+            }
+        });
 
-    navLinks.forEach(link => {
-        link.classList.remove('active');
-        if (link.getAttribute('href') === `#${current}`) {
-            link.classList.add('active');
-        }
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === `#${current}`) {
+                link.classList.add('active');
+            }
+        });
     });
-});
+}
 
 /* ==========================================================
    10. LAZY LOAD IMAGES (Fallback for older browsers)
    ========================================================== */
 if ('loading' in HTMLImageElement.prototype) {
-    // Browser supports lazy loading natively
     console.log('✅ Native lazy loading supported');
 } else {
-    // Fallback: Load all images
     const images = document.querySelectorAll('img[loading="lazy"]');
     images.forEach(img => {
         img.src = img.dataset.src || img.src;
@@ -267,11 +408,22 @@ if ('loading' in HTMLImageElement.prototype) {
 }
 
 /* ==========================================================
-   11. CONSOLE MESSAGE
+   11. WHATSAPP LINK - Console Log
    ========================================================== */
-console.log('%c🎨 Portfolio Loaded Successfully!', 
-    'color: #b87333; font-size: 16px; font-weight: bold;');
+document.querySelectorAll('a[href*="wa.me"]').forEach(link => {
+    link.addEventListener('click', function() {
+        console.log('📱 Opening WhatsApp...');
+    });
+});
+
+/* ==========================================================
+   12. CONSOLE MESSAGE
+   ========================================================== */
+console.log('%c🌿 Portfolio Loaded Successfully!', 
+    'color: #2d4a2b; font-size: 16px; font-weight: bold;');
 console.log('%cMohd Suhail | 2D Animator & Graphics Designer', 
-    'color: #6b5a4a; font-size: 12px;');
+    'color: #5a6b52; font-size: 12px;');
 console.log('%c📧 Suhail@65gmail.com | 📱 +91 8700264519', 
-    'color: #6b5a4a; font-size: 12px;');
+    'color: #5a6b52; font-size: 12px;');
+console.log('%c📝 Formspree: Active (mppwvbzq)', 
+    'color: #7fa06d; font-size: 11px;');
